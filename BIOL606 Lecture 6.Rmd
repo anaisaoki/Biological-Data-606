@@ -1,0 +1,194 @@
+---
+title: "BIOL606 Lecture 6"
+author: "Nick Barber & Luke Miller"
+date: "2/21/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Introduction to binoimal GLMs for BIOL606.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(ggfortify)
+library(multcomp)
+library(AICcmodavg)
+library(car)
+```
+
+Upload Tribolium flour beetle data from AICcmodavg package and build a binomial model.
+```{r}
+data(beetle) #load the beetle data from the AICcmodavg package
+
+beetle <- mutate(beetle, Number_survived = Number_tested - Number_killed)
+
+m1 <- glm(cbind(Number_killed, Number_survived) ~ Dose, data= beetle, 
+          family= binomial)
+autoplot(m1)
+summary(m1)
+
+m2 <- glm(cbind(Number_killed, Number_survived) ~ 1, data= beetle, family= binomial)
+anova(m1,m2,test="Chi")
+```
+
+```{r diagnostics}
+library(arm)
+# here is an alternate method for plotting residuals from a logistic glm
+# to try to assess assumptions
+
+# Extract predicted (fitted) values from the model object
+x = predict(m1)
+# Extract the residuals from the model object
+y = resid(m1)
+# Use binnedplot() function from arm package to show residuals vs
+# expected values, and 2*SE lines, which hopefully most residuals fall within
+# See the Hector 2015 reading pg 129-130
+arm::binnedplot(x,y)
+
+```
+
+
+
+```{r beetlePlot}
+beetleplot <- ggplot(beetle, aes(x = Dose, y = Mortality_rate)) +
+  geom_point() +
+  stat_smooth(method = "glm", method.args = list(family = "binomial"), 
+              level=0) +  #level=0 surpresses the confidence limits, which are weird for this binomial stat_smooth
+  ylab("Mortality rate") +
+  theme_bw()
+beetleplot
+```
+
+
+```{r beetlePlot2}
+# Here's a way to get standard error bands around the line
+minDose = min(beetle$Dose, na.rm=TRUE)
+maxDose = max(beetle$Dose, na.rm=TRUE)
+newx = data.frame(Dose = seq(minDose,maxDose, length = 100)) # new x data
+# Use predict function to estimate fitted line and std. error
+# The type='link' argument indicates that the predicted values
+# should be calculated and left in the logit form
+pred = predict(m1, newdata = newx, type = 'link', se.fit = TRUE)
+# Put into a data frame
+addThese = data.frame(newx, fit = pred$fit, se.fit = pred$se.fit)
+
+beetleplot2 <- ggplot(beetle, aes(x = Dose, y = Mortality_rate)) +
+  geom_point() +
+  ylab("Mortality rate") +
+  geom_line(data = addThese, # add fitted line, back-transform from logits
+            aes(x = Dose, y = binomial()$linkinv(fit)), color = 'red')+
+  geom_line(data = addThese, # add upper conf. interval, back-transformed
+            aes(x = Dose,
+                y = binomial()$linkinv(fit + (1.96*se.fit)))) +
+  geom_line(data = addThese, # add lower conf. interval, back-transformed
+            aes(x = Dose,
+                y = binomial()$linkinv(fit - 1.96*se.fit)))
+  
+beetleplot2
+
+#qplot from text doesn't work
+#qplot(Dose, Mortality_rate, data= beetle), geom= c("point","smooth"), method= "glm", family= binomial, weights= Number_tested, ylab= "Mortality rate" ) +theme_bw()
+
+```
+
+Bernoulli data
+```{r}
+boar <- read.table("Boar.txt",header=T)
+
+#does body length predict tuberculosis lesions in wild boars?
+#some possible ways to plot the data to inspect it:
+plot(Tb~LengthCT,data=boar)
+plot(jitter(Tb,amount=0.05)~LengthCT,data=boar)
+plot(LengthCT~factor(Tb),data=boar)
+
+#fit the model - both of these are the same
+boartb1 <- glm(Tb ~ LengthCT, data=boar, family=binomial)
+# Make a version where we have successes and failures, by creating a new
+# column where the zero's are converted to 1's in a new column called 
+# noTb (so now for each boar, it has either a 1 in the Tb column or 
+# the noTb column). This is like running a trial where a single boar is
+# the "group" and the proportion of successes and failures for the group
+# is always going to be 1 or zero.
+boar$noTb <- abs(boar$Tb-1)
+boartb2 <- glm(cbind(Tb,noTb) ~ LengthCT, data=boar, family=binomial)
+
+#assess the model
+par(mfrow = c(2,2))
+plot(boartb1)
+autoplot(boartb1)
+#evaluate the model
+anova(boartb1,test="Chi")
+summary(boartb1)
+
+```
+
+
+```{r boarPlot}
+
+#plot it
+boarplot <- ggplot(boar, aes(x = LengthCT, y = Tb)) +
+  geom_point() +
+  stat_smooth(method = "glm", method.args = list(family = "binomial"), level=0.95) +
+  ylab("Tb lesions present") +
+  xlab("Cabeza-Tronco Length") +
+  theme_bw()
+boarplot
+
+```
+
+
+```{r boarAgeLength}
+boartb2 = glm(Tb~LengthCT + factor(AgeClass), data = boar,
+              family = 'binomial')
+
+anova(boartb2, test = 'Chi')
+summary(boartb2)
+
+boar2plot = ggplot(boar, aes(x = LengthCT, y = Tb, color = factor(AgeClass))) +
+  geom_point() +
+  stat_smooth(method = "glm", method.args = list(family = "binomial"), level=0.95)
+
+boar2plot
+```
+
+```{r residualsBoar}
+par(mfrow=c(1,1))
+library(arm)
+# here is an alternate method for plotting residuals from a logistic glm
+# to try to assess assumptions
+
+# Extract predicted (fitted) values from the model object
+x = predict(boartb2)
+# Extract the residuals from the model object
+y = resid(boartb2)
+# Use binnedplot() function from arm package to show residuals vs
+# expected values, and 2*SE lines, which hopefully most residuals fall within
+# See the Hector 2015 reading pg 129-130
+arm::binnedplot(x,y)
+
+```
+
+
+
+```{r AnovaTesting}
+# Test the interaction for these unbalanced data using contr.sum and 
+# Type III sums of squares
+options(contrasts = c("contr.sum","contr.poly"))
+boartb4 <- glm(Tb ~ LengthCT * factor(AgeClass), data=boar, family=binomial)
+Anova(boartb4,type=3)
+
+# Switch back to treatment contrasts so that we can look at coefficient
+# estimates relative to a reference level rather than some mean from contr.sum
+options(contrasts = c("contr.treatment","contr.treatment"))
+boartb3 <- glm(Tb ~ factor(AgeClass) * LengthCT, data=boar, family=binomial)
+summary(boartb3) # to see values
+```
+
+
+
+
+
+
+

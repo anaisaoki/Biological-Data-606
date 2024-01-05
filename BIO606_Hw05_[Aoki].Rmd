@@ -1,0 +1,205 @@
+---
+title: "lecture 05"
+output: html_document
+date: '2023-02-01'
+---
+
+```{r setup, include=FALSE}
+
+library(ggplot2)
+library(ggfortify)
+library(multcomp)
+library(emmeans)
+
+#In class/GLM HW 
+cdata <- read.csv("lecture3_cucumberdamage.csv")
+flowercounts <- read.csv("lecture3_flowercounts.csv")
+cdata$plant <- as.factor(cdata$plant)
+flowercounts$plant <- as.factor(flowercounts$plant)
+
+snowmelt <- read.csv("NEE_snowmelt_Biol606.csv")
+
+#Beckerman Chapter 7 Hw
+soay <- read.csv("SoaySheepFitness.csv")
+glimpse(soay)
+```
+
+## In class code 
+```{r}
+
+flowertotals <- flowercounts %>%
+group_by(plant) %>%
+summarise(Fs = sum(F, na.rm=T), Ms = sum(M, na.rm=T))
+
+cfdata <- left_join(cdata, flowertotals, by = "plant")
+
+male_plot <- ggplot(cfdata, aes(x = num_leaves, y = Ms)) +
+geom_point()
+male_plot
+
+```
+
+```{r}
+### Regression Analysis: plant data ###
+model1 <- lm(Ms ~ num_leaves, data = cfdata)
+
+plot(model1)
+autoplot(model1) 
+autoplot(model1, smooth.color = NA)
+
+anova(model1)
+summary(model1)
+
+Male_plat <- ggplot(cfdata, aes(x = num_leaves, y = Ms)) +
+	geom_smooth(method = 'lm', se = TRUE)
+
+```
+
+```{r}
+### Regression Analysis: snow data ###
+snowmelt$VEG_TYPE <- as.factor(snowmelt$VEG_TYPE)
+model2 <- lm(CumC_uptake_Jun_Aug ~ VEG_TYPE, data = snowmelt)
+autoplot(model2, smooth.colour = NA)
+
+anova(model2) #differences in c value among the five different veg types 
+summary(model2)
+#does not give us intercepts 
+#no r2 value (not regression since its categorical)
+#also does not specifically tell you which groups are different 
+
+#post hoc test: determine if there a differences between groups 
+summary(glht(model2, linfct = mcp(VEG_TYPE = "Tukey")), test = 
+adjusted("holm"))
+emmeans(model2, list(pairwise ~ VEG_TYPE), adjust = "tukey")
+
+```
+
+##Homework code 
+```{r}
+#Is total male flowers affected by number of leaves AND pollination treatment (in a single linear model)? 
+
+#Hypothesis: There is a positive relationship between the number of male flowers by the number of leaves and pollination treatment does not have an affect  
+
+model3 <- lm(Ms ~ num_leaves * pollination, data = cfdata) 
+autoplot(model3, smooth.colour = NA) #data diagnosis
+
+anova(model3) 
+#pollination type does not affect male flowers 
+
+ggplot(cfdata, aes(x = num_leaves, y= Ms, colour = pollination)) +
+  geom_point(size = 5) + geom_smooth(data = cfdata, aes(fill =pollination)) +
+  scale_colour_manual(values = c(NP="orange", HP="blue")) +
+  scale_fill_manual(values=c(NP="orange", HP="blue")) +
+  theme_bw()
+```
+
+##Beckerman Chapter 7 
+```{r}
+#simple linear regression
+ggplot(soay, aes(x = body.size, y = fitness)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) + #shows fitted lin reg line
+  geom_smooth(span = 1, colour = "red", se = FALSE) + #shows nonlin line (more flexible), span controls curvature
+  xlab("Body mass (kg)") + ylab("Lifetime fitness")
+
+#Diagnostic graphs
+modelbah <- lm(fitness ~ body.size, data = soay) #not evenly distributed along normal q-q line
+autoplot(modelbah, smooth.colour = NA) #normal linear model not a good model based on data distribution 
+
+summary(modelbah)
+```
+
+```{r}
+## Poission distribution ##
+
+#consider 3 assumptions
+#1. normal takes in continuous not discrete data (count data)
+#2/#3. normal dist allows for negs -> normal dist bel curve, counts often asymmetrically dist
+
+#linear predictor: predicted fitness = intercept + slope x body size
+soay.glm <- glm(fitness ~ body.size, data = soay, 
+family = poisson) 
+autoplot(soay.glm)
+
+#link function: nat log of predicted fitness to body size 
+soay.glm <- glm(fitness ~ body.size, data = soay, 
+family = poisson(link = log)) 
+autoplot(soay.glm)
+
+anova(soay.glm) #analysis of deviance
+summary(soay.glm)
+
+anova(soay.glm, test = "Chisq")
+```
+
+```{r}
+#pretty graph
+# note our use of the $ to get the body.size column 
+min.size <- min(soay$body.size)
+max.size <- max(soay$body.size)
+# make the new.x values; we use the 'body.size' variable 
+# name to name the column 
+# just as it is in the original data. 
+new.x <- expand.grid(body.size =
+seq(min.size, max.size, length=1000))
+
+
+# generate fits and standard errors at new.x values. 
+new.y = predict(soay.glm, newdata = new.x, se.fit = TRUE)
+new.y = data.frame(new.y)
+#peak 
+head(new.y)
+
+addThese <- mutate(addThese,
+                   lwr = fitness - 1.96 * se.fit,
+                   upr = fitness + 1.96 * se.fit)
+
+# housekeeping to bring new.x and new.y together 
+addThese <- data.frame(new.x, new.y)
+addThese <- rename(addThese, fitness = fit) 
+#peak
+head(addThese)
+
+ggplot(soay, aes(x = body.size, y = fitness)) + 
+  geom_point(size = 3, alpha = 0.5) +
+  geom_smooth(data = addThese, aes(ymin = lwr, ymax = upr), stat = 'identity') +
+  theme_bw() #removes grey
+```
+
+```{r}
+# range of body sizes 
+min.size <- min(soay$body.size)
+max.size <- max(soay$body.size)
+# make the new.x values; 
+# we use the 'body.size' name to name the column 
+# just as it is in the original data. 
+
+new.x <- expand.grid(body.size =
+seq(min.size, max.size, length=1000))
+# generate fits and standard errors at new.x values. 
+new.y = predict(soay.glm, newdata=new.x, se.fit=TRUE)
+new.y = data.frame(new.y)
+head(new.y)
+
+addThese <- data.frame(new.x, new.y)
+head(addThese)
+
+addThese <- mutate(addThese,fitness = exp(fit),
+                   lwr = exp(fit - 1.96 * se.fit),
+                   upr = exp(fit + 1.96 * se.fit))
+head(addThese)
+
+#plot
+ggplot(soay, aes(x = body.size, y = fitness)) +
+  geom_point(size = 3, alpha = 0.5) +
+  geom_smooth(data = addThese, 
+              aes(ymin = lwr, ymax = upr), stat = ’identity’) +
+  theme_bw()
+  
+```
+
+```{r}
+summary(soay.glm)
+glm(formula = fitness ~ body.size, family = poisson(link = log), 
+    data = soay)
+```

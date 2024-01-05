@@ -1,0 +1,82 @@
+---
+title: "Data Management, Manipulation,and Exploration with dplyr"
+output: html_document
+date: '2023-01-30'
+---
+
+```{r setup, include=FALSE}
+
+rm(list = ls())
+
+library(dplyr)
+library(ggplot2)
+library(broom)
+
+compensation <- read.csv("compensation.csv")
+
+```
+
+```{r}
+summary(compensation)
+
+#Subsetting data: grabbing columns, rows and subsets 
+select(compensation, Fruit) #select grabs columns, grabs fruit column
+select(compensation, -Root) #grabs columns, excluding root column
+
+slice(compensation, 2) #grabs rows, 2nd row in dataset 
+slice(compensation, 2:10) #grabs rows 2-10
+slice(compensation, c(2, 3, 10)) #returns dataframe not actual pulled row numbers from dataset 
+
+with(compensation, Fruit > 80) #search and __ command, > identifies TRUE/FALSE to command 
+
+filter(compensation, Fruit > 80) 
+filter(compensation, Fruit > 80 | Fruit < 20) #OR with boolean symbol 
+
+lo_hi_fruit <- filter(compensation, Fruit > 80 | Fruit < 20)
+lo_hi_fruit
+
+#Transforming data
+head(compensation) #peak
+compensation <- mutate(compensation, logFruit = log(Fruit)) #log transforms data, use mutate to manipulate data
+head(compensation) 
+
+#Sorting data
+arrange(compensation, Fruit) #sorting 
+
+select(filter(compensation, Fruit > 80), Root)
+
+compensation %>% # Root values from Fruit > 80 subset 
+  filter(Fruit > 80) %>% 
+    select(Root)
+
+#Calculating summary statistics about groups of your data
+summarise(
+  group_by(compensation, Grazing), #grous data by grazing type
+    meanFruit = mean(Fruit)) #sum stat mean (standard deviation: sd())
+
+mean.fruit <- summarise(group_by(compensation, Grazing),
+  meanFruit = mean(Fruit))
+mean.fruit
+
+compensation %>%
+  group_by(Grazing) %>%
+    summarise(meanFruit = mean(Fruit))
+
+compensation %>%
+  group_by(Grazing) %>%
+    summarise(
+      meanFruit = mean(Fruit), 
+      sdFruit = sd(Fruit))
+
+#Advanced dplyr
+#join merges two datasets together
+compensation_mean_centred <- compensation %>%
+  group_by(Grazing) %>%
+    mutate(Fruit_minus_mean = Fruit - mean(Fruit))
+compensation_mean_centred
+
+compensation_lms <- compensation %>%
+  group_by(Grazing) %>%
+    do(tidy(lm(Fruit ~ Root, data=.))) #tidy outputs data into linear model function
+compensation_lms
+```

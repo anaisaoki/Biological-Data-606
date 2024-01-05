@@ -1,0 +1,130 @@
+---
+title: "Biol 606 Final Presentation"
+author: "Anais Aoki"
+date: '2023-04-27'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library("vegan")
+library("ggpubr")
+library("tidyr")
+library("randomForest") #to impute missing data
+
+animals <- read_excel("~/Desktop/Bio606/FINAL_606_NMDS.xlsx") #read in file
+#View(animals) #be able to look at complete data file in next tab as you're writing your code
+
+```
+
+#setting up data
+```{r}
+animals$class = factor(animals$class) #want to group/compare across taxa 
+
+animals$threat = factor(animals$threat) #need to change to factor 
+animals$iucn = factor(animals$iucn) #neeed to change to factor
+mammals.imputed <- rfImpute(redrank~., data = animals, iter=4) #impute missing data
+#head(mammals.imputed) #peak at data
+
+```
+
+Research Question: Are measures of genetic diversity good predictors for species threat level according to the IUCN? IUCN RedRank is the response variable and the predictor variables include observed and expected heterozygosity, allelic richness and mean number of alleles
+
+Hypothesis: Taxa with lower genetic diversity has greater levels of extinction probability (There are differences in measures of genetic diversity between species threat level)
+
+#Check for correlation between redrank and genetic diversity measures#
+```{r}
+#using pearsons correlation test
+#use = "complete.obs" accounts for na values
+cor(animals$redrank, animals$observed, method = "pearson", use = "complete.obs") #r= -0.21
+cor(animals$redrank, animals$expected, method = "pearson", use = "complete.obs") #r= -0.19
+cor(animals$redrank, animals$allelic.richness, method = "pearson", use = "complete.obs") #r = -0.14
+cor(animals$redrank, animals$mean.alleles, method = "pearson", use = "complete.obs") #r=0.35
+
+#each genetic diversity measure is not strongly correlated with IUCN redlist ranking 
+
+#sanity check: this could mean that there are differences in genetic diversity measures across the different taxa groupings that are included in this data set
+
+#wanted to look at correlation when data is imputed - correlation remains very similar so we can infer that the data is well imputed
+cor(mammals.imputed$redrank, mammals.imputed$observed, method = "pearson", use = "complete.obs") #r= -0.24
+cor(mammals.imputed$redrank, mammals.imputed$expected, method = "pearson", use = "complete.obs") #r= -0.19
+cor(mammals.imputed$redrank, mammals.imputed$allelic.richness, method = "pearson", use = "complete.obs") #r = -0.14
+cor(mammals.imputed$redrank, mammals.imputed$mean.alleles, method = "pearson", use = "complete.obs") #r=0.35
+
+```
+
+#NMDS Ordination#
+```{r, mammalsnmds}
+#need to omit the second, third and fourth columns: second column is species class, the third and fourth columms are species threat level and iucn redlist ranking (categorical)
+
+#using the imputed data 
+animalsnmds = metaMDS(mammals.imputed[,-(1:4)], distance='euclidean', k = 2, trace = 0)
+animalsnmds
+#Stress: 0.094
+# data was normalized using wisconsin transformation
+#342 rows (observations)
+
+stressplot(animalsnmds)
+
+```
+
+#NMDS Analysis#
+```{r}
+#NMDS plot looking at genetic diversity measures grouped by mammals threat level
+pl = ordiplot(animalsnmds, type='none', main = paste0('Stress = ',
+round (animalsnmds$stress,dig=3)),
+las = 1)
+points(pl, what='sites', bg = as.numeric(animals$threat), pch = 21,)
+legend('topleft',legend=levels(animals$threat), pch = 21, 
+		pt.bg = 1:6,)
+ordiellipse(animalsnmds,kind='ehull', draw = 'polygon',
+		groups=animals$threat,label=F)
+
+#NMDS plot looking at genetic diversity measures grouped by IUCN ranking
+p2 = ordiplot(animalsnmds, type='none',main = paste0('Stress = ',
+round (animalsnmds$stress,dig=3)),
+las = 1)
+points(p2, what='sites', bg = as.numeric(animals$iucn), pch = 21)
+legend('bottomright', legend=levels(animals$iucn), pch = 21, 
+		pt.bg = 1:6)
+ordiellipse(animalsnmds,kind='ehull', draw = 'polygon',
+		groups=animals$iucn,label=F)
+
+```
+
+
+#Subset just mammals from the data set 
+```{r}
+#do we get better seperation if we look at class alone?
+#subset mammals data from class to analyze nmds ordination for class mammalia 
+mammals2 <- subset(mammals.imputed, mammals.imputed$class == "Mammalia", c("threat", "iucn", "observed", "expected", "mean.alleles", "allelic.richness"))
+#View(mammals2)
+
+#nmds analysis on class mammals
+mamsnmds = metaMDS(mammals2[,-(1:2)], distance='euclidean', k = 2, trace = 0) #want to omit first two categorical columns
+mamsnmds #stress value 0.079
+
+
+#NMDS plot looking at genetic diversity measures grouped by mammals threat level
+pl = ordiplot(mamsnmds, type='none', main = paste0('Stress = ',
+round (mamsnmds$stress,dig=3)),
+las = 1)
+points(pl, what='sites', bg = as.numeric(mammals2$threat), pch = 21,)
+legend('topleft',legend=levels(mammals2$threat), pch = 21, 
+		pt.bg = 1:6,)
+ordiellipse(mamsnmds,kind='ehull', draw = 'polygon',
+		groups=mammals2$threat,label=F)
+
+#NMDS plot looking at genetic diversity measures grouped by IUCN ranking
+p2 = ordiplot(mamsnmds, type='none',main = paste0('Stress = ',
+round (mamsnmds$stress,dig=3)),
+las = 1)
+points(p2, what='sites', bg = as.numeric(mammals2$iucn), pch = 21)
+legend('bottomright', legend=levels(mammals2$iucn), pch = 21, 
+		pt.bg = 1:6)
+ordiellipse(mamsnmds,kind='ehull', draw = 'polygon',
+		groups=mammals2$iucn,label=F)
+```
+

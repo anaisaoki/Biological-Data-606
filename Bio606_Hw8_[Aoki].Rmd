@@ -1,0 +1,111 @@
+---
+title: "homework 8"
+author: "Anais Aoki"
+date: '2023-02-27'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(car)
+
+library(nlme)
+
+hungry_cat <- read.csv("blocked_experiment.csv")
+limp <- read.csv("Limpet_grazing.csv")
+
+```
+plant = plant id number
+block = block(13, lettered a through m)
+AMF = fungi present, y or no (this is an IV)
+
+```{r}
+
+head(cat$cat_mass)
+plot1 <- ggplot(hungry_cat, aes(x=cat_mass, y=damage)) +
+  geom_boxplot() +
+  facet_wrap(~AMF) +
+  theme_bw()
+plot1
+
+model1 <- lm(cat_mass ~ damage * AMF, data = hungry_cat)
+autoplot(model1)
+
+#plot cat mass against block
+plot2 <- ggplot(hungry_cat, aes(x=cat_mass, y=block)) +
+  geom_boxplot() +
+  facet_wrap(~AMF) +
+  theme_bw()
+plot2
+```
+
+#blocking example
+```{r}
+blockmodel <- lme(cat_mass ~ AMF * damage, random = ~1|block, data=hungry_cat, 
+method = "ML")
+
+#check residuals of the block model
+plot(blockmodel) #checks for homoscedascity 
+qqnorm(resid(blockmodel)) #check for normality of residuals
+hist(resid(blockmodel)) #scores the data so that average is centered around zero and you have standard deviations on either size 
+
+
+#Evaluate the fixed factors in some way:
+options(contrasts = c("contr.sum","contr.poly")) #THEN REFIT BLOCKMODEL
+blockmodel <- lme(cat_mass ~ AMF * damage, random = ~1|block, data=hungry_cat, 
+method = "ML")
+Anova(blockmodel, type=3) #type III ANOVA test -> looking at interaction
+options(contrasts = c("contr.treatment","contr.poly")) #reset contrasts
+
+#Or "manually" test fixed factors:
+blockmodel2 <- update(blockmodel, ~.-AMF:damage) #shorthand to drop interaction
+anova(blockmodel,blockmodel2) #likelihood ratio test
+```
+
+##Homework 8##
+• Site is a blocking factor (1-8, convert to factor)
+• LimpetTreat is a categorical predictor (IV), type of limpet grazing on plates
+• Fo is the response variable (DV), amount of microalgae on plates
+• TempC is a continuous covariate (IV), average temperature of plates
+```{r}
+
+limpet <- lme(Fo ~ LimpetTreat * TempC, random = ~1|as.factor(Site), data=limp, 
+method = "ML")
+
+plot(limpet)
+qqnorm(resid(limpet)) #check for normality of residuals
+hist(resid(limpet)) 
+Anova(limpet, type = 3)
+
+
+# diagnostic plots #
+#Normal q-q plot checks for homoscedascity of residuals - it does not look terrible but does not look great either. There is a little variation in the distribution of residuals across the regression line (line is not straight and outliers of residuals are present at the lower and upper ends) 
+#Histogram distribution of data is not even (std -4 and more data present in the upper limit of the mean (0))
+#There is a significant difference in Fo (amount of microalgae on plates) between limpet treatment (p=5.814e-08, df =3). Temperature does not significantly differ in amount of microalge (0.06009, df=1), only when interaction of limpet treatment is present (p=6.285e-06, df =3)
+
+
+```
+
+#3/1 In class code
+```{r}
+
+lacebugs <- read.csv("lacebugs.csv")
+head(lacebugs)
+
+lacemod1 <- lme(lacebugs_m2 ~ treatment * light + time, random 
+= ~1 | tree, data = lacebugs, na.action=na.omit)
+
+plot(lacemod1)
+qqnorm(resid(lacemod1)) #wedge shaped residuals need to log transform 
+hist(resid(lacemod1)) 
+
+#logd-transformed
+lacemod2 <- lme(log(lacebugs_m2+1) ~ treatment * light + time, random = 
+~1 | tree, data = lacebugs, method="ML")
+plot(lacemod2)
+qqnorm(resid(lacemod2)) #wedge shaped residuals need to log transform 
+hist(resid(lacemod2)) 
+```

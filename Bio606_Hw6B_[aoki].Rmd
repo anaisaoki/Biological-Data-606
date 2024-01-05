@@ -1,0 +1,59 @@
+---
+title: "Homework 6B"
+author: "Anais Aoki"
+date: '2023-02-08'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(dplyr)
+library(car)
+
+cucumber <- read_csv("lecture5_cucumberdamage.csv")
+
+```
+
+#Homework Code#
+```{r}
+#is this data balanced in regards to pollination and herbivory? pollination and leaf damage?
+
+#hastagged it out but checked counts to see if data is balaned 
+#table(cucumber$herbivory,cucumber$pollination) #balanced
+#table(cucumber$leafdamage, cucumber$pollination) #unbalanced
+
+#total fruits DV with pollination and herbivory
+#logistic regression (categorical dependent variable)
+cucumber$herbivory <- as.factor(cucumber$herbivory)
+
+model <-glm(formula = totalfruits ~ herbivory, family = quasipoisson(link = log), data = cucumber)
+autoplot(model)
+anova(model)
+summary(model)
+summary(glht(model, linfct = mcp(herbivory = "Tukey")), test = 
+adjusted("holm"))
+emmeans(model, list(pairwise ~ herbivory), adjust = "tukey")
+
+#pairwise differences of herbivory#
+#L&M and L&O not sig different
+#M&O not sig different
+
+## Test the variables in your model using both type 1 and type 3 approaches. Do the results change? Do the conclusions?
+#for balanced data: use type 1 (order dependent type 1 test)
+model1 <- glm(totalfruits ~ herbivory * pollination , family = quasipoisson(link = log), data = cucumber)
+anova(model1)
+summary(model1)
+autoplot(model1)
+
+model2 <- glm(totalfruits ~ herbivory * pollination , family = poisson(link = log), data = cucumber)
+anova(model2)
+summary(model2)
+
+#type 3 (order independent)
+Anova(model1,type=3)
+#pollination does not significantly affect total fruits but herbivory class does
+#the interaction of pollination and herbivory type does significantly impact total fruits 
+```
+

@@ -1,0 +1,108 @@
+---
+title: "Hw 6"
+author: Anais Aoki
+output: html_document
+date: '2023-02-06'
+---
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+
+turtles <- read.csv("turtleponds.csv")
+soay <- read.csv("SoaySheepFitness.csv")
+cucumber <- read.csv("lecture5_cucumberdamage.csv")
+```
+#In Class Code
+```{r}
+
+turtleplot <- ggplot(turtles, aes(x=depth, y=turtlecount)) +
+geom_point() +
+theme_bw()
+turtleplot
+#low turtle count in low depth - not ideal environment 
+#in an ideal environment there arnt always turtles present 
+
+turt <- lm(turtlecount ~ depth, data = turtles)
+#look at residuals
+#normal q-q looks good, residuals wedge distribution
+autoplot(turt)
+
+```
+## Soay Sheep
+```{r}
+#reproduction (fitness) against body size
+ggplot(soay, aes(x = body.size, y = fitness)) +
+  labs(x = "Body Size", y = "Fitness (Reproduction)") +
+  geom_point() +
+  geom_point(size = 2.5) +
+  theme_bw()
+
+soaylm <- lm(fitness ~body.size, data = soay)
+autoplot(soaylm) 
+#anova(soaylm) #ordinary least squares 
+
+soayglm <- glm(fitness ~ body.size, data = soay)
+autoplot(soayglm)
+anova(soayglm) #uses max liklihood estimation to fit model parameters
+anova(soayglm, test = "Chi")  
+summary(soayglm) #summary give us directionality and sym of residuals 
+```
+
+##Homework Question 1
+```{r}
+#Question: Is the total number of fruits produced affected by herbivore damage to leaves (i.e., "leafdamage") and hand-pollination treatments?
+#yes, as leaves become more damange the number of total fruit decreases 
+cucplot <- ggplot(cucumber, aes(x=leafdamage, y=totalfruits)) +
+  labs(title = "HW Question 1", x = "Leaf damange", y = "Number of total fruits produced") +
+  geom_point(size = 2.5) +
+  geom_point() +
+  theme_bw()
+cucplot + theme(plot.title = element_text(size = 15),axis.title = element_text(size = 14))
+
+model1 <- glm(totalfruits ~ leafdamage, data = cucumber)
+autoplot(model1) #q-q dist looks okay, residuals vs fitted -> wedge distribution
+
+model2 <- glm(totalfruits ~ leafdamage, data = cucumber, family = poisson())
+autoplot(model2) #slightly better 
+
+
+#Result figures
+cucplot2 <- ggplot(cucumber, aes(x = leafdamage, y= totalfruits, colour = pollination)) +
+  geom_point(size = 3) + 
+  labs(title = "HW Plot Question 1", x = "Leaf damange", y = "Number of total fruits produced") +
+  geom_smooth(data = cucumber, aes(fill =pollination)) +
+  theme_bw()
+
+cucplot2 + theme(plot.title = element_text(size = 15),axis.title = element_text(size = 14)) 
+```
+
+##Homework Question 2##
+```{r}
+#Question: Is the total number of fruits produced affected by herbivory and hand-pollination treatments?
+
+### Regression Analysis: snow data ###
+cucumber$herbivory <- as.factor(cucumber$herbivory)
+#logistic regression
+model2 <-glm(formula = totalfruits ~ herbivory, family = poisson(link = log), data = cucumber)
+autoplot(model2)
+anova(model2)
+summary(model2)
+
+#L and M are the only ones not significantly different from each other (in total number of fruits)
+
+summary(glht(model2, linfct = mcp(herbivory = "Tukey")), test = 
+adjusted("holm"))
+emmeans(model2, list(pairwise ~ herbivory), adjust = "tukey")
+
+herbplot <- ggplot(cucumber, aes(x=herbivory, y=totalfruits, colour = herbivory)) +
+  labs(title = "HW Question 2", x = "Herbivory", y = "Number of total fruits produced") +
+  geom_boxplot() +
+  geom_jitter() +
+  theme_bw()
+herbplot + theme(plot.title = element_text(size = 15),axis.title = element_text(size = 14))
+
+
+```

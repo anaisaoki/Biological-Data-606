@@ -1,0 +1,110 @@
+---
+title: "Aoki BIO606 Lec01"
+output: html_document
+date: '2023-01-18'
+---
+```{r, setup, include=FALSE}
+library(tidyverse)
+library(readr)
+library(ggplot2)
+library(dplyr)
+
+snowmelt <- read.csv("NEE_snowmelt_Biol606.csv", header=TRUE)
+
+```
+
+1. Calculate mean and standard deviation of cumulative June-August C uptake ("CumC_uptake_Jun_Aug")
+```{r}
+mean(na.omit(CumC_uptake_Jun_Aug)) 
+sd(na.omit(CumC_uptake_Jun_Aug))
+```
+2. Calculate the length of the snow free period using the day the last snow melted (SNOW_MELT_ DATE_MODIS) and the day of the first fall snowfall (SNOW_FALL_START_MODIS)
+```{r}
+snowfree <- (snowmelt$SNOW_FALL_START_MODIS-snowmelt$SNOW_MELT_DATE_MODIS)
+snowfree
+```
+
+3.log transform precipitation_Jun_Aug and create a dataframe that includes the non-log transformed and the log-transformed precipitation variables, and the length of the snow free period. Save it as a .csv file.
+```{r}
+dfnew <- data.frame(nonlog_precip = (snowmelt$precipitation_Jun_Aug),
+                    log_precip = (log(snowmelt$precipitation_Jun_Aug)),
+                    freesnow = (snowmelt$SNOW_FALL_START_MODIS-snowmelt$SNOW_MELT_DATE_MODIS))
+
+write.csv(dfnew, file="dfnew.csv")
+```
+4. Look at the file you created and check what it looks like. Note that the commands for mean and standard deviation produce a single number, but log-transforming creates a vector of numbers that can be stored as a new variable.
+```{r}
+dfnew <- read.csv("dfnew.csv", row.names = FALSE)
+View(dfnew)
+```
+5. Look at the hypotheses below. Make a simple plot illustrating H1 and another for H2. What kind of plot did you make?
+H1. The length of the snow free period is mostly controlled by fall temperatures.
+H2. An earlier snow melt will result in an increased uptake of carbon by Arctic tundra
+```{r}
+#Hypothesis 1
+#snow free is dependent on fall temperatures
+plot(snowfree ~ airT_Sept_mean, data = snowmelt, xlab= "Mean Air Temp in September", ylab= "Snow Free Period", col="blue")
+#Hypothesis 2
+plot(SNOW_MELT_DATE_MODIS ~ CumC_uptake_Jun_Aug, xlab = "Carbon Uptake", ylab = "Snow Melt")
+```
+6. Start a new code chunk for Monday's assigned reading (Beckerman et al. chapter 4), and use it to create the code in the reading, including your own annotations too.
+```{r}
+
+# clear the decks 
+rm(list = ls())
+
+# get the data
+compensation <- read.csv('compensation.csv')
+
+#check out the data 
+glimpse(compensation) #shows columns, counts and data type
+
+ggplot(compensation, aes(x = Root, y = Fruit)) +
+geom_point() #simple scatterplot
+
+##Scatter plot ##
+ggplot(compensation, aes(x = Root, y = Fruit, colour = Grazing)) + #adds color to points which also adds legend
+geom_point(size = 5) + #larger data points
+xlab("Root Biomass") + #x axis label
+ylab("Fruit Production") + #y axis label
+theme_bw() #removes grey background 
+
+ggplot(compensation, aes(x = Root, y = Fruit, shape = Grazing)) + #changes data points shape by variable + legend
+geom_point(size = 5) + #larger data points
+xlab("Root Biomass") + #x axis label
+ylab("Fruit Production") + #y axis label
+theme_bw() #removes grey background 
+
+## Box plot ##
+ggplot(compensation, aes(x = Grazing, y = Fruit)) +
+geom_boxplot() + #simple box plot
+geom_point(size = 4, colour = 'light grey', alpha = 0.5) + #adds light grey data points 
+xlab("Grazing treatment") +
+ylab("Fruit Production") +
+theme_bw()
+
+## Histogram ##
+ggplot(compensation, aes(x = Fruit)) +
+geom_histogram(bins = 15, binwidth = 15) +
+theme_bw() +
+xlab("Grazing treatment") +
+ylab("Fruit Production") +
+## ‘stat_bin()‘ using ‘bins = 30‘. Pick better value with
+## ‘binwidth‘
+
+ggplot(compensation, aes(x = Fruit)) +
+geom_histogram(bins = 10) +
+  theme_bw()
+ggplot(compensation, aes(x = Fruit)) +
+geom_histogram(binwidth = 15) +
+facet_wrap(~Grazing) + #splits plots by grazing type
+theme_bw()
+
+## Saving Graphs ##
+ggsave("ThatCoolHistogramOfFruit.png") #saves to working directory
+
+
+```
+
+
+

@@ -1,0 +1,76 @@
+---
+title: "Homework 2"
+output: html_document
+date: '2023-01-23'
+---
+
+```{r, set up}
+snowmelt <- read.csv("NEE_snowmelt_Biol606.csv") 
+attach(snowmelt)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+View(snowmelt)
+```
+
+##In Class Practice Code
+```{r}
+integer.data<-c(5,6,8,3,4,5,6,5,4,3)
+category.data<-factor(c("a","a","a","b","b","b","c","c","c","c"))
+random.data<-runif(10,0,1) #generates 10 random numbers between 0 an 1
+random.data
+
+plot(integer.data) #plots the values in list against its poisition index
+plot(category.data) #plots into bins by counts of each in the list
+plot(random.data ~ integer.data) #plots the interger data x random numbers generated 
+plot(integer.data ~ category.data) #boxplot 
+```
+## Homework Code
+
+```{r}
+##1.Use the snowmelt data to make each of the two following figures, which plot C uptake against precipitation, with data depicted by site
+##unedited graphs
+
+fig1 <- ggplot(data = snowmelt, aes(x = precipitation_Jun_Aug, y = CumC_uptake_Jun_Aug, color = SITE)) +
+  geom_point() +
+  ggtitle("Figure 1") 
+  fig1
+
+fig2 <- ggplot(data = snowmelt, aes(x = precipitation_Jun_Aug, y = CumC_uptake_Jun_Aug, color = SITE)) +
+  geom_point() +
+  ggtitle("Figure 2") +
+  facet_wrap(~SITE, ncol = 7)
+fig2
+
+##2. Use the ggplot cheat sheet to update figure 1: add better axis labels, adjust the x- and y-axis ranges, and alter the theme. Can you find other ways to just make the graph easier to read and look prettier in general? Annotate your script to explain how you did it. 
+
+##axis ranges seemed fine to me? 
+
+ggfig1 <- ggplot(data = snowmelt, aes(x = precipitation_Jun_Aug, y = CumC_uptake_Jun_Aug, color = SITE)) +
+  geom_point() +
+  xlab("Precipitation") + #Adding x-axis labels
+  ylab("Carbon Uptake") + #Adding y-axis labels
+  ggtitle("Figure 1: Edited") +
+  geom_point(size = 2.5) + #increased point size 
+  theme_bw() #remove grey background
+ggfig1 + theme(plot.title = element_text(size = 15),axis.title = element_text(size = 15))  #larger axis text
+
+##3. Now update figure 2, including making the values on the x-axis more readable. Can you change the order in which the sites are shown? 
+
+#struggled with making this look nicer.. Not of fan of this kind of plot for this data 
+ggfig2 <- ggplot(data = snow_new, aes(x = precipitation_Jun_Aug, y = CumC_uptake_Jun_Aug, color = SITE)) +
+  geom_point() +
+  xlim(0,200) + #removes a data point from I.creek if you rescale 
+  xlab("Precipitation") + #Adding x-axis labels
+  ylab("Carbon Uptake") + #Adding y-axis labels
+  ggtitle("Figure 2: Edited") +
+  facet_wrap(.~SITE,  ncol = 7, scales = "free_x") +
+  theme_bw() + #removed grey background
+  theme(panel.grid.minor = element_blank(), strip.text.x = element_blank()) 
+            #striped the headers since its already clustered by color.. idk playing around with it
+ggfig2 + theme(plot.title = element_text(size = 15), axis.title = element_text(size = 15)) #larger text
+  
+
+
+
+```
